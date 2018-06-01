@@ -186,13 +186,15 @@ def bigrams_test(k=100):
 
 
 def load_vectors():
-     with open('./data/glove.6B.100d.txt') as f:
+     with open('./data/glove.6B.100d.txt', encoding="utf8") as f:
         for line in f:
             arr = line.split()
             word = arr[0]
             vector = arr[1:]
             vector = list(map(lambda x: float(x), vector))
-            glove_vectors[word] = np.array(vector, dtype=np.float64)  
+            glove_vectors[word] = np.array(vector, dtype=np.float64)
+
+
 def avg_word_vec(comment):
     words = comment.strip().split()
     x = np.zeros((100,), dtype=np.float64)
@@ -212,6 +214,31 @@ def avg_word_vec(comment):
             x += glove_vectors[newWord]
     x = x/(1.0*len(words))
     return list(x)
+
+
+def expanded_word_vec(comment, max_len):
+    words = comment.strip().split()
+    x = np.zeros((max_len, 100), dtype=np.float64)
+    i = -1
+    if len(words) == 0:
+        return x
+    for word in words:
+        newWord = word.lower()
+        if newWord[-1] in ['!', '?', ',', ':', ';', '.', '\'', '\"']:
+            newWord = newWord[:-1]
+        if len(newWord) == 0:
+            continue
+        if newWord[0] in ['!', '?', ',', ':', ';', '.', '\'', '\"']:
+            newWord = newWord[1:]
+        i += 1
+        if i >= max_len:
+            break
+        if newWord not in glove_vectors:
+            continue
+        else:
+            x[i] = glove_vectors[newWord]
+    return x
+
 
 def read_test_data(word2idx, BOW_func=BOW):
     n = 153164
@@ -266,6 +293,65 @@ def read_train_data_glove():
         print("Read", len(X), "points.")
         return X, Y
 
+
+def read_expanded_train_data_glove():
+    max_len = 100
+    k = 100
+    load_vectors()
+    n = 159571
+    # n = 100
+    with open("./data/train.csv", encoding="utf8") as f:
+        reader = csv.DictReader(f)
+        X = np.zeros((n, max_len, k))
+        Y = np.zeros((n, 6))
+        i = 0
+        for line in reader:
+            insult = int(line['insult'])
+            toxic = int(line['toxic'])
+            identity_hate = int(line['identity_hate'])
+            severe_toxic = int(line['severe_toxic'])
+            obscene = int(line['obscene'])
+            threat = int(line['threat'])
+            comment_text = line['comment_text']
+            X[i] = expanded_word_vec(comment_text, max_len)
+            Y[i] = get_y(insult, toxic, identity_hate, severe_toxic, obscene, threat)
+            i += 1
+            if i == n:
+                break
+        print("Read", len(X), "points.")
+        return X, Y
+
+
+def read_batch_expanded_train_data_glove():
+    max_len = 100
+    k = 100
+    load_vectors()
+    # n = 159571
+    n = 100
+    with open("./data/train.csv", encoding="utf8") as f:
+        reader = csv.DictReader(f)
+        X = np.zeros((n, max_len, k))
+        Y = np.zeros((n, 6))
+        i = 0
+        for line in reader:
+            insult = int(line['insult'])
+            toxic = int(line['toxic'])
+            identity_hate = int(line['identity_hate'])
+            severe_toxic = int(line['severe_toxic'])
+            obscene = int(line['obscene'])
+            threat = int(line['threat'])
+            comment_text = line['comment_text']
+            X[i] = expanded_word_vec(comment_text, max_len)
+            Y[i] = get_y(insult, toxic, identity_hate, severe_toxic, obscene, threat)
+            i += 1
+            if i == n:
+                yield X, Y
+                X = np.zeros((n, max_len, k))
+                Y = np.zeros((n, 6))
+        print("Read", len(X), "points.")
+        yield X, Y
+
+
 def read_test_data_glove():
     k = 100
     setOfIds = set()
@@ -307,6 +393,52 @@ def read_test_data_glove():
                 continue
             comment_text = line['comment_text']
             X[i] = avg_word_vec(comment_text)
+            i += 1
+    return X, Y
+
+
+def read_expanded_test_data_glove():
+    max_len = 100
+    k = 100
+    setOfIds = set()
+    n = 63978
+
+
+    with open("./data/test_labels.csv", encoding="utf8") as f:
+        reader = csv.DictReader(f)
+        Y = np.zeros((n, 6))
+        i = 0
+        for line in reader:
+            insult = int(line['insult'])
+            toxic = int(line['toxic'])
+            identity_hate = int(line['identity_hate'])
+            severe_toxic = int(line['severe_toxic'])
+            obscene = int(line['obscene'])
+            threat = int(line['threat'])
+            arr = [insult, toxic, identity_hate, severe_toxic, obscene, threat]
+            hasNegativeOne = False
+            for el in arr:
+                if el == -1:
+                    hasNegativeOne = True
+                    break
+            if hasNegativeOne:
+                setOfIds.add(line['id'])
+                continue
+            Y[i] = get_y(insult, toxic, identity_hate, severe_toxic, obscene, threat)
+            i += 1
+
+        Y = Y[:i, :]
+        print("Read", i, "points.")
+
+    with open("./data/test.csv", encoding="utf8") as f:
+        reader = csv.DictReader(f)
+        X = np.zeros((i, max_len, k))
+        i = 0
+        for line in reader:
+            if line['id'] in setOfIds:
+                continue
+            comment_text = line['comment_text']
+            X[i] = expanded_word_vec(comment_text, max_len)
             i += 1
     return X, Y
 

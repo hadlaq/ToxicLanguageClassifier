@@ -1,5 +1,5 @@
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Dense, LSTM
 from data_utils import *
 import numpy as np
 from sklearn.metrics import roc_curve
@@ -20,38 +20,40 @@ for key in ['tp', 'fp', 'fn', 'tn']:
 		dictionary[key] = 0'''
 
 
-X_train, Y_train = read_train_data_glove()
-X_test, Y_test = read_test_data_glove()
+X_train, Y_train = read_expanded_train_data_glove()
+X_test, Y_test = read_expanded_test_data_glove()
 
 
-
+max_len = 100
 model = Sequential()
-model.add(Dense(25, input_dim=100, activation='relu'))
-model.add(Dense(25, activation='relu'))
+lstm = LSTM(100, input_shape=(max_len, 100))
+model.add(lstm)
+# model.add(Dense(25, input_dim=100, activation='relu'))
+# model.add(Dense(25, activation='relu'))
 model.add(Dense(6, activation='sigmoid'))
 # Compile model
 model.compile(loss='binary_crossentropy', optimizer='adam',  metrics=['accuracy'])
 # Fit the model
 
-model.fit(X_train, Y_train, epochs=10, batch_size=64)
+model.fit(X_train, Y_train, epochs=1, batch_size=64)
 
 # evaluate the model
 Y_pred = model.predict(X_test)
 names = ["Insult", "Toxic", "Identity Hate", "Severe Toxic", "Obscene", "Threat"]
 
 for i in range(len(names)):
-	y_pred_keras = Y_pred[:, i]
-	fpr_keras, tpr_keras, thresholds_keras = roc_curve(Y_test[:, i], y_pred_keras)
-	auc_keras = auc(fpr_keras, tpr_keras)
-	print(names[i], ":", auc_keras)
-	plt.figure(1)
-	plt.plot([0, 1], [0, 1], 'k--')
-	plt.plot(fpr_keras, tpr_keras, label='{} AUC = {:.3f})'.format(names[i], auc_keras))
+    y_pred_keras = Y_pred[:, i]
+    fpr_keras, tpr_keras, thresholds_keras = roc_curve(Y_test[:, i], y_pred_keras)
+    auc_keras = auc(fpr_keras, tpr_keras)
+    print(names[i], ":", auc_keras)
+    plt.figure(1)
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.plot(fpr_keras, tpr_keras, label='{} AUC = {:.3f})'.format(names[i], auc_keras))
 plt.xlabel('False positive rate')
 plt.ylabel('True positive rate')
 plt.title('3-Layer Neural Network TF-IDF Glove ROC Curve')
 plt.legend(loc='best')
-plt.savefig("base_neural_glove.png")
+plt.savefig("lstm.png")
 
 	
 
