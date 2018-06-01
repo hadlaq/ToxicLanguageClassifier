@@ -3,7 +3,7 @@ from collections import Counter
 import numpy as np
 import os.path
 
-
+glove_vectors = dict()
 def save_vocab(word2idx, idx2word, name="vocab"):
     with open("./data/" + name + "_word2idx", 'w', encoding="utf8") as f:
         for w in word2idx:
@@ -185,6 +185,34 @@ def bigrams_test(k=100):
     return X, Y
 
 
+def load_vectors():
+     with open('./data/glove.6B.100d.txt') as f:
+        for line in f:
+            arr = line.split()
+            word = arr[0]
+            vector = arr[1:]
+            vector = list(map(lambda x: float(x), vector))
+            glove_vectors[word] = np.array(vector, dtype=np.float64)  
+def avg_word_vec(comment):
+    words = comment.strip().split()
+    x = np.zeros((100,), dtype=np.float64)
+    if len(words) == 0:
+        return x
+    for word in words:
+        newWord = word.lower()
+        if newWord[-1] in ['!', '?', ',', ':', ';', '.', '\'', '\"']:
+            newWord = newWord[:-1]
+        if len(newWord) == 0:
+            continue
+        if newWord[0] in ['!', '?', ',', ':', ';', '.', '\'', '\"']:
+            newWord = newWord[1:]
+        if newWord not in glove_vectors:
+            continue
+        else:
+            x += glove_vectors[newWord]
+    x = x/(1.0*len(words))
+    return list(x)
+
 def read_test_data(word2idx, BOW_func=BOW):
     n = 153164
     k = len(word2idx)
@@ -213,3 +241,75 @@ def read_test_data(word2idx, BOW_func=BOW):
 
         print("Read", i, "points.")
         return X, Y
+
+def read_train_data_glove():
+    k = 100
+    load_vectors()
+    n = 159571
+    with open("./data/train.csv", encoding="utf8") as f:
+        reader = csv.DictReader(f)
+        X = np.zeros((n, k))
+        Y = np.zeros((n, 6))
+        i = 0
+        for line in reader:
+            insult = int(line['insult'])
+            toxic = int(line['toxic'])
+            identity_hate = int(line['identity_hate'])
+            severe_toxic = int(line['severe_toxic'])
+            obscene = int(line['obscene'])
+            threat = int(line['threat'])
+            comment_text = line['comment_text']
+            X[i] = avg_word_vec(comment_text)
+            Y[i] = get_y(insult, toxic, identity_hate, severe_toxic, obscene, threat)
+            i += 1
+
+        print("Read", len(X), "points.")
+        return X, Y
+
+def read_test_data_glove():
+    k = 100
+    setOfIds = set()
+    n = 153164
+    
+
+    with open("./data/test_labels.csv", encoding="utf8") as f:
+        reader = csv.DictReader(f)
+        Y = np.zeros((n, 6))
+        i = 0
+        for line in reader:
+            insult = int(line['insult'])
+            toxic = int(line['toxic'])
+            identity_hate = int(line['identity_hate'])
+            severe_toxic = int(line['severe_toxic'])
+            obscene = int(line['obscene'])
+            threat = int(line['threat'])
+            arr = [insult, toxic, identity_hate, severe_toxic, obscene, threat]
+            hasNegativeOne = False
+            for el in arr:
+                if el == -1:
+                    hasNegativeOne = True
+                    break
+            if hasNegativeOne:
+                setOfIds.add(line['id'])
+                continue
+            Y[i] = get_y(insult, toxic, identity_hate, severe_toxic, obscene, threat)
+            i += 1
+
+        Y = Y[:i, :]
+        print("Read", i, "points.")
+
+    with open("./data/test.csv", encoding="utf8") as f:
+        reader = csv.DictReader(f)
+        X = np.zeros((i, k))
+        i = 0
+        for line in reader:
+            if line['id'] in setOfIds:
+                continue
+            comment_text = line['comment_text']
+            X[i] = avg_word_vec(comment_text)
+            i += 1
+    return X, Y
+
+
+
+
