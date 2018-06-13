@@ -52,7 +52,7 @@ optimizers = ['adam', 'rmsprop']
 bestBatchSize = 32
 bestFilterSize = 5
 bestOptimizer = 'adam'
-'''
+
 embed_size = 100
 max_features = 40000 
 maxlen = 100
@@ -133,7 +133,6 @@ for currIter in range(100):
         bestFilterSize = currFilterSize
         bestOpt = currOpt
     print("Iteration " + str(currIter) + " found auc of " + str(avgAuc))
-'''
 ##### ACTUAL NEW FINAL TEST (ABOVE IS HYPERPARAMETER TUNING) HERE #############
 
 
